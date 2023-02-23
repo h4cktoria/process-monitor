@@ -33,7 +33,7 @@ There are some of the features of Process Monitor:
 
 - Download the sources and get them into the game
 - Move __sh411Lib.src__ and __ProcessMonitor.src__ into your __/root__ folder
-- Compile __ProcessMonitor__
+- Compile __ProcessMonitor.src__
 - Launch compiled binary. Type __help__ to see all available commands
 
 
