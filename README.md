@@ -1,6 +1,6 @@
 # Process Monitor
 
-__
+_Your swiss army knife when it comes to process-handling_
 
 <img src="process-monitor.PNG" align="center" />
 
@@ -39,9 +39,9 @@ There are some of the features of Process Monitor:
 
 ## License
 
-This software is licensed under GPL v3. See [here]() for full details
+This software is licensed under GPL v3. See [here](https://github.com/h4cktoria/process-monitor/blob/main/LICENSE) for full details
 
-> Process Monitor - 
+> Process Monitor - Your swiss army knife when it comes to process-handling.
 > Copyright (C) 2023  Hacktoria
 >
 > This program is free software: you can redistribute it and/or modify
