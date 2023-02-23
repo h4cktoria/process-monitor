@@ -1,0 +1,384 @@
+// change path to the library when compiling.
+import_code("/root/sh411Lib.src")
+
+// you can treat those as Python import statements;
+// so that something like this:
+// from <library_name> import <some_callable> as <some_name>
+// is equals to this:
+// <some_name> = new <library_name>.<some_callable>
+// in MiniScript.
+clr = new sh411.Color
+str = new sh411.String
+aux = new sh411.Auxiliary
+process = new sh411.Process
+
+
+cfg = sh411.Configuration.Config(home_dir() + "/Config/ProcessMonitor.conf", "=")
+config = {}
+config.debug = cfg.get_option("debug", "false")
+config.display_header = cfg.get_option("display_header", "true")
+config.display_startup_message = cfg.get_option("display_startup_message", "true")
+config.display_help_messages = cfg.get_option("display_help_message", "true")
+config.snapshot_dir = cfg.get_option("snapshot_dir", home_dir())
+config.theme_file_name = cfg.get_option("theme_file_name", "ProcessMonitor.theme")
+config.show_disclaimer = cfg.get_option("show_disclaimer", "true")
+
+theme = sh411.Configuration.Config(home_dir() + "/Config/Themes/" + config.theme_file_name, "=")
+clr.success = theme.get_option("color_success", "#9FE2BF")
+clr.note = theme.get_option("color_note", "#FFFFE0")
+clr.warning = theme.get_option("color_warning", "#DE3163")
+clr.info = theme.get_option("color_info", "#6495ED")
+clr.author = theme.get_option("color_author", "#CCCCFF")
+clr.set_default_color(theme.get_option("color_other", "#E6E6FA"))
+_ = @clr._
+
+
+colorize_process_usage = function(process_usage, text)
+	if process_usage.val() == 0 then text = text.replace(process_usage, _(process_usage, clr.success))
+	if process_usage.val() > 0 then text = text.replace(process_usage, _(process_usage, clr.note))
+	if process_usage.val() > 75 then text = text.replace(process_usage, _(process_usage, clr.warning))
+	return text
+end function
+
+
+// class for ui elements
+ui = {}
+ui.ver = 0.3
+ui.program_name = _("sh411", clr.author) + "'s Process Monitor"
+ui.prompt_message = "actioN>> "
+
+ui.input = []
+ui.errors = []
+ui.buttons = {}
+
+ui.debug_log = function(info)
+	if config.debug == true then print(_("DEBUG: " + info))
+end function
+
+ui.choose_processes_input = function()
+	ui.input = []
+	input = user_input(_(ui.prompt_message)).split(" ")
+	if not input then return
+	if input.len() == 1 then
+		if input[0] == "all" or input[0] == "*" then
+			ui.input = range(1, ui.buttons.len())
+		else if input[0].val == 0 then
+			ui.input = input
+		else if input[0].val != 0 then
+			ui.input = [input[0].val]
+		end if
+	else if input.len() > 0 then
+		i = 0
+		// converting input values to numbers
+		while i < input.len()
+			input[i] = input[i].val()
+			i = i + 1
+		end while
+		// filtering out invalid input
+		for i in input
+			if i == 0 then continue
+			for button in ui.buttons
+				if button.key == i then
+					if not ui.input.hasIndex(i) then ui.input = ui.input + [i]
+					break
+				end if
+			end for
+		end for
+	end if
+end function
+
+ui.display_header = function()
+	if config.display_header then print(_(ui.program_name + " v" + ui.ver))
+end function
+
+ui.display_action = function(action, description)
+	action = str.append_whitespaces(action, 15)
+	print(_(action + description))
+end function
+
+ui.display_button = function(number_, process_object)
+	p = process_object
+	
+	ui.buttons[number_] = p
+	
+	number_ = str.append_whitespaces(number_, 3)
+	user = str.append_whitespaces(p.user, 10)
+	pid = str.append_whitespaces(p.pid, 6)
+	cpu_usage = p.cpu_usage
+	mem_usage = p.mem_usage
+	if cpu_usage == 0 then cpu_usage = cpu_usage + ".0"
+	if mem_usage == 0 then mem_usage = mem_usage + ".0"
+	cpu_usage = str.append_whitespaces(cpu_usage, 6)
+	mem_usage = str.append_whitespaces(mem_usage, 6)
+	
+	data = number_ + user + pid + cpu_usage + mem_usage + p.name_
+	original_text = data
+
+	data = data.replace(p.pid, _(p.pid, clr.info))
+	data = data.replace(p.name_, _(p.name_, clr.info))
+	
+	data = colorize_process_usage(cpu_usage, data)
+	data = colorize_process_usage(mem_usage, data)
+	
+	if p.user == "root" then
+		data = data.replace(p.user, _(p.user, clr.warning))
+	else if p.user == "guest" then
+		data = data.replace(p.user, _(p.user, clr.note))
+	else
+		data = data.replace(p.user, _(p.user, clr.success))
+	end if
+	
+	print(_(data))
+	return original_text
+end function
+
+ui.display_running_processes = function()
+	print(_("NUM USER       PID    CPU_%  MEM_%  NAME"))
+	// cleaning up ui.buttons
+	ui.buttons = {}
+	processes = process.get_running_processes()
+	i = 0
+	while i < processes.len()
+		p = processes[i]
+		ui.display_button(i + 1, p)
+		i = i + 1
+	end while
+end function
+
+ui.display_usage_info = function()
+	process_count = process.get_running_processes().len()
+	cpu_usage = process.get_total_cpu_usage() + ""
+	mem_usage = process.get_total_mem_usage() + ""
+	if cpu_usage == "0" then cpu_usage = cpu_usage + ".0"
+	if mem_usage == "0" then mem_usage = mem_usage + ".0"
+
+	data = "CPU " + str.append_whitespaces(cpu_usage, 5) + " MEM " + str.append_whitespaces(mem_usage, 5) + " PROCESSES " + process_count
+	data = colorize_process_usage(cpu_usage, data)
+	data = colorize_process_usage(mem_usage, data)
+
+	print(_(data))
+end function
+
+ui.display_errors = function()
+	if ui.errors.len != 0 then
+		for error in ui.errors
+			print(_(error, clr.warning))
+		end for
+		ui.errors = []
+	end if
+end function
+
+ui.display_line = function(length)
+	line = ""
+	i = 0
+	while i < length
+		line = line + "-"
+		i = i + 1
+	end while
+	print(_(line))
+end function
+
+ui.display_main_help_message = function()
+	ui.display_line(40)
+	ui.display_action("disclaimer", "Licensing details")
+	ui.display_action("config", "Edit configuration")
+	ui.display_action("monitor", "Htop mode")
+	ui.display_action("<blank>", "Refresh processes")
+	ui.display_action("<NUM(s)>/all/*", "Choose processes(separated by space)")
+	ui.display_action("Ctrl+C", "Quit " + ui.program_name)
+end function
+
+
+// class for menus that are shown from menu.main()
+menu = {}
+
+menu._get_choosen_processes = function()
+	processes = []
+	for i in ui.input
+		if ui.buttons.hasIndex(i) then
+			if not ui.buttons[i].exists() then continue
+			ui.display_button(i, ui.buttons[i])
+			processes = processes + [ui.buttons[i]]
+		end if
+	end for
+	return processes
+end function
+
+menu._display_to_be_implemented_error = function()
+	print(_("To be implemented soon..."))
+	wait()
+end function
+
+menu.main = function(display_help_message)
+	clear_screen()
+	ui.display_header()
+	ui.display_running_processes()
+	ui.display_usage_info()
+
+	if display_help_message then
+		ui.display_main_help_message()
+	else
+		if config.display_startup_message then print(_("Type 'help' to get list of available commands."))
+	end if
+
+	if config.show_disclaimer == true then
+		print(_("This software is licensed under GPL v3. Type 'disclaimer' for more details."))
+		cfg.set_option("show_disclaimer", "false")
+		config.show_disclaimer = cfg.get_option("show_disclaimer", "false")
+	end if
+
+	// debug output
+	ui.debug_log(ui.input)
+	ui.debug_log(ui.errors)
+	
+	ui.display_errors()
+	ui.choose_processes_input()
+
+	if ui.input.len() == 1 then
+		if ui.input[0] == "monitor" then return menu.monitoring()
+		if ui.input[0] == "config" then return menu.configuration()
+		if ui.input[0] == "disclaimer" then return menu.disclaimer()
+		if ui.input[0] == "help" then return menu.main(true)
+	end if
+	if ui.input.len() != 0 then return menu.manipulating_processes()
+end function
+
+menu.manipulating_processes = function()
+	clear_screen()
+	ui.display_header()
+	if menu._get_choosen_processes().len == 0 then return
+
+	if config.display_help_messages then 
+		ui.display_line(40)
+		ui.display_action("1.", "Terminate process/es")
+		ui.display_action("2.", "Create process/es snapshot")
+		ui.display_action("3.", "Notify when process/es terminated")
+		ui.display_action("9.", "Go back")
+	end if
+	
+	input = user_input(_(ui.prompt_message), false, true).val
+	if input == 1 then return submenu.terminating_processes()
+	if input == 2 then return submenu.taking_snapshot()
+	if input == 3 then return submenu.notification()
+	if input == 9 then return
+
+	return menu.manipulating_processes()
+end function
+
+menu.monitoring = function()
+	while true
+		// waiting for the game tick for more smoothiness
+		yield
+		clear_screen()
+		ui.display_header()
+		ui.display_running_processes()
+		ui.display_usage_info()
+		wait()
+	end while
+end function
+
+menu.configuration = function()
+	clear_screen()
+	ui.display_header()
+
+	print(_("Configuration at " + _(cfg.path, clr.info) + ":"))
+	ui.display_line(40)
+	for kv in config
+		option_name = kv.key
+		option_value = kv.value
+		print(_(option_name + " = " + option_value))
+	end for
+
+	if config.display_help_messages then 
+		ui.display_line(40)
+		ui.display_action("<n> = <v>", "assign option with name <n> some value <v>")
+		ui.display_action("9.", "Go back")
+	end if
+
+	input = user_input(_("actioN>> ")).remove(" ").remove(" ")
+	if input.val == 9 then return
+
+	input = input.split("=")
+	if input.len() < 2 then return menu.configuration()
+	input_option_name = input[0]
+	input_option_value = input[1]
+
+	if input_option_value == "1" then input_option_value = "true"
+	if input_option_value == "0" then input_option_value = "false"
+
+	for kv in config
+		option_name = kv.key
+		option_value = kv.value
+		if option_name == input_option_name then
+			cfg.set_option(option_name, input_option_value)
+			config[option_name] = cfg.get_option(option_name)
+			return menu.configuration()
+		end if
+	end for
+
+	return menu.configuration()
+end function
+
+menu.disclaimer = function()
+	clear_screen()
+	ui.display_header()
+
+	print()
+	print(_("This program comes with ABSOLUTELY NO WARRANTY; This is free software, and you are welcome to redistribute it under certain conditions; For more details please visit https://github.com/h4cktoria/process-monitor"))
+	print()
+
+	cfg.set_option("show_disclaimer", "false")
+	config.show_disclaimer = cfg.get_option("show_disclaimer", "false")
+	user_input("Press any key to continue...", false, true)
+end function
+
+
+// class for menus that are shown from other menus
+submenu = {}
+
+submenu.terminating_processes = function()
+	for p in menu._get_choosen_processes()
+		code = p.kill()
+		if code != true and code then ui.errors = ui.errors + [code]
+	end for
+end function
+
+submenu.taking_snapshot = function()
+	clear_screen()
+	ui.display_header()
+
+	snapshot_content = "USER PID CPU_% MEM_% NAME" + char(10)
+	for p in menu._get_choosen_processes()
+		snapshot_content = snapshot_content + p.user + " " + p.pid + " " + p.cpu_usage + " " + p.mem_usage + " " + p.name_ + char(10)
+	end for
+
+	ui.display_line(40)
+
+	snapshot_name = str.random(8) + ".shot"
+	path = config.snapshot_dir
+	file = aux.computer.File(path)
+	if not file or not file.is_folder() then
+		path = home_dir()
+		print(_("Could not find directory: " + _(config.snapshot_dir, clr.info), clr.note))
+		print(_("Using " + _(path, clr.info) + " for snapshot...", clr.note))
+	end if
+	aux.computer.touch(path, snapshot_name)
+
+	file = aux.computer.File(path + "/" + snapshot_name)
+	file.set_content(format_columns(snapshot_content))
+	print(_("Successfully created snapshot " + _(snapshot_name, clr.info) + " at " + _(path, clr.info)))
+	wait(2)
+
+	return menu.manipulating_processes()
+end function
+
+submenu.notification = function()
+	menu._display_to_be_implemented_error()
+	return menu.manipulating_processes()
+end function
+
+
+while true
+	menu.main()
+	yield
+end while

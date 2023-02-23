@@ -1,0 +1,290 @@
+////////////////////////////////////////
+// Builtins enhancements
+////////////////////////////////////////
+map.hasIndex = function(index)
+	return Auxiliary.binary_search(self.indexes, index)
+end function
+
+// Returns true if value exists. Returns false otherwise.
+map.hasValue = function(value)
+	return Auxiliary.binary_search(self.values, value)
+end function
+
+
+// Maps function to the list. Returns a list of mapped values.
+list.fmap = function(function_)
+	new_self = []
+	for i in self
+		new_self = new_self + function_(i)
+	end for
+	return new_self
+end function
+
+// Maps function or procedure to the list. Returns nothing.
+list.pmap = function(procedure)
+	for i in self
+		procedure(i)
+	end for
+end function
+
+list.hasIndex = function(index)
+	return Auxiliary.binary_search(self, index)
+end function
+
+
+////////////////////////////////////////
+// Own implementations
+////////////////////////////////////////
+Library = {}
+
+// function to include non-user libraries
+Library.include = function(library_name)
+	lib = include_lib(library_name)
+	if not lib then lib = include_lib(current_path + "/" + library_name)
+	if not lib then lib = include_lib("/lib/" + library_name)
+	if not lib then exit(Color._("Could not find " + library_name + "!", "red"))
+	return lib
+end function
+
+
+String = {}
+
+String.lower_letters = "qwertyuiopasdfghjklzxcvbnm"
+String.upper_letters = String.lower_letters.upper()
+String.qwerty_abc = String.lower_letters + String.upper_letters
+
+String.random = function(length)
+	abc = self.qwerty_abc.values
+	str = ""
+	i = 0
+	while i < length
+		abc.shuffle()
+		str = str + abc[0]
+		i = i + 1
+	end while
+	return str
+end function
+
+String.append_whitespaces = function(phrase, whitespace_count, character)
+	if not character then character = " "
+	if not whitespace_count then whitespace_count = phrase.len()
+	// phrase to string convertion
+	phrase = phrase + ""
+	if phrase.len() < whitespace_count then
+		while phrase.len() < whitespace_count
+			phrase = phrase + character
+		end while
+	else if phrase.len() > whitespace_count then
+		while phrase.len() > whitespace_count
+			phrase = phrase.values()
+			phrase[-1] = ""
+			new_phrase = ""
+			for char_ in phrase
+				new_phrase = new_phrase + char_
+			end for
+			phrase = new_phrase
+		end while
+	end if
+	return phrase + character
+end function
+
+
+Auxiliary = {}
+
+Auxiliary.shell = get_shell()
+Auxiliary.computer = Auxiliary.shell.host_computer()
+
+// I dont know if it is faster than Linear search in MiniScript, but...
+// Introducing you, the modern way of finding index in list:
+// Iterative binary search algorithm
+Auxiliary.binary_search = function(list_, i)
+	start = 0
+	end_ = list_.len() - 1;
+         
+    while start <= end_
+        mid = round((start + end_) / 2)
+        if list_[mid] == i then
+			return true
+        else if list_[mid] < i then
+             start = mid + 1
+        else
+             end_ = mid - 1
+		end if
+	end while
+  
+    return false
+end function
+
+
+Color = {}
+
+// This is not intended to be accessed directly.
+_GLOBAL_DEFAULT_COLOR = "white"
+
+// Setter for GLOBAL_DEFAULT_COLOR
+Color.set_default_color = function(color)
+	globals._GLOBAL_DEFAULT_COLOR = color
+end function
+
+Color._ = function(message, color)
+	if not color then color = globals._GLOBAL_DEFAULT_COLOR
+	return "<color=" + color + ">" + message + "</color>"
+end function
+
+
+Process = {}
+
+// Process object constructor.
+Process.Process = function(user, pid, cpu_usage, mem_usage, name_)
+	this = {}
+
+	this.user = user
+	this.pid = pid
+	this.cpu_usage = cpu_usage
+	this.mem_usage = mem_usage
+	this.name_ = name_
+
+	this.kill = function()
+		return Auxiliary.computer.close_program(this.pid)
+	end function
+
+	this.exists = function()
+		return Process.exists(this.pid)
+	end function
+	
+	return this
+end function
+
+// Returns running processes as a list of Process() objects.
+Process.get_running_processes = function()
+	lines = Auxiliary.computer.show_procs.split(char(10))
+	process_list = []
+	for line in lines
+		if line == lines[0] then continue
+		l = line.split(" ")
+		l[1] = l[1].val
+		l[2] = l[2].remove("%").val
+		l[3] = l[3].remove("%").val
+		process = new self.Process(l[0], l[1], l[2], l[3], l[4])
+		process_list = process_list + [process]
+	end for
+	return process_list
+end function
+
+Process.get_process_count = function()
+	return self.get_running_processes().len()
+end function
+
+Process.get_total_cpu_usage = function()
+	cpu_usage = 0
+	for p in self.get_running_processes()
+		cpu_usage = cpu_usage + p.cpu_usage
+	end for
+	return cpu_usage
+end function
+
+Process.get_total_mem_usage = function()
+	mem_usage = 0
+	for p in self.get_running_processes()
+		mem_usage = mem_usage + p.mem_usage
+	end for
+	return mem_usage
+end function
+
+Process.exists = function(pid)
+	for p in self.get_running_processes()
+		if p.pid == pid then return true
+	end for
+	return false
+end function
+
+
+Configuration = {}
+
+// Config object constructor. delimiter is a delimiter between option and value pairs inside config file.
+Configuration.Config = function(absolute_path, delimiter)
+	this = {}
+	
+	this.path = absolute_path
+	this.delimiter = delimiter
+
+	parts = this.path.split("/")
+	new_path = ""
+	for part in parts
+		if part != parts[-1] then
+			Auxiliary.computer.create_folder(new_path, part)
+		else
+			Auxiliary.computer.touch(new_path, part)
+		end if
+		new_path = new_path + part + "/"
+	end for
+	this.file = Auxiliary.computer.File(new_path)
+	if not this.file then return Configuration._creation_error("File object is null.")
+	
+	this.set_option = function(option, value)
+		lines = this.file.get_content().split(char(10))
+		is_changed = false
+		changed_config = ""
+		for line in lines
+			original_line = line
+			line = line.split(this.delimiter)
+			if not line then continue
+			if line.len != 2 then
+				if original_line != "" and original_line[0] == "#" then 
+					changed_config = changed_config + original_line + char(10)
+				end if
+				continue
+			end if
+			line_option = line[0].remove(" ")
+			line_value = line[1].remove(" ")
+			if option.lower() == line_option.lower() and not is_changed then 
+				line_value = value
+				is_changed = true
+			end if
+			changed_config = changed_config + line_option + " " + this.delimiter + " " + line_value + char(10)
+		end for
+		if not is_changed then changed_config = changed_config + option + " " + this.delimiter + " " + value + char(10)
+		this.file.set_content(changed_config)
+	end function
+
+	this.get_option = function(option_name, fallback_value)
+		if not fallback_value then fallback_value = null
+		value = null
+		lines = this.file.get_content().split(char(10))
+		for line in lines
+			line = line.split(this.delimiter)
+			if line.len != 2 then continue
+			line_option_name = line[0].remove(" ")
+			line_value = line[1].remove(" ")
+			if line_option_name == option_name then
+				value = line_value
+				break
+			end if
+		end for
+		if fallback_value and not value then
+			value = fallback_value
+			this.set_option(option_name, value)
+		end if
+		if value == "true" then value = true
+		if value == "false" then value = false
+		return value
+	end function
+
+	return this
+end function
+
+Configuration._creation_error = function(message)
+	return exit(Color._("Config object creation error: " + message, "red"))
+end function
+
+
+////////////////////////////////////////
+// Bindings
+////////////////////////////////////////
+sh411 = {}
+sh411.Library = new Library
+sh411.String = new String
+sh411.Auxiliary = new Auxiliary
+sh411.Color = new Color
+sh411.Process = new Process
+sh411.Configuration = new Configuration
