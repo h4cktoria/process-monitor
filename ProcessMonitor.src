@@ -7,8 +7,8 @@ import_code("/root/sh411Lib.src")
 // is equals to this:
 // <some_name> = new <library_name>.<some_callable>
 // in MiniScript.
-clr = new sh411.Color
 str = new sh411.String
+color = new sh411.Color
 aux = new sh411.Auxiliary
 process = new sh411.Process
 
@@ -24,19 +24,19 @@ config.theme_file_name = cfg.get_option("theme_file_name", "ProcessMonitor.theme
 config.show_disclaimer = cfg.get_option("show_disclaimer", "true")
 
 theme = sh411.Configuration.Config(home_dir() + "/Config/Themes/" + config.theme_file_name, "=")
-clr.success = theme.get_option("color_success", "#9FE2BF")
-clr.note = theme.get_option("color_note", "#FFFFE0")
-clr.warning = theme.get_option("color_warning", "#DE3163")
-clr.info = theme.get_option("color_info", "#6495ED")
-clr.author = theme.get_option("color_author", "#CCCCFF")
-clr.set_default_color(theme.get_option("color_other", "#E6E6FA"))
-_ = @clr._
+color.success = theme.get_option("color_success", "#9FE2BF")
+color.note = theme.get_option("color_note", "#FFFFE0")
+color.warning = theme.get_option("color_warning", "#DE3163")
+color.info = theme.get_option("color_info", "#6495ED")
+color.author = theme.get_option("color_author", "#CCCCFF")
+color.set_default_color(theme.get_option("color_other", "#E6E6FA"))
+_ = @color._
 
 
 colorize_process_usage = function(process_usage, text)
-	if process_usage.val() == 0 then text = text.replace(process_usage, _(process_usage, clr.success))
-	if process_usage.val() > 0 then text = text.replace(process_usage, _(process_usage, clr.note))
-	if process_usage.val() > 75 then text = text.replace(process_usage, _(process_usage, clr.warning))
+	if process_usage.val() == 0 then text = text.replace(process_usage, _(process_usage, color.success))
+	if process_usage.val() > 0 then text = text.replace(process_usage, _(process_usage, color.note))
+	if process_usage.val() > 75 then text = text.replace(process_usage, _(process_usage, color.warning))
 	return text
 end function
 
@@ -44,7 +44,7 @@ end function
 // class for ui elements
 ui = {}
 ui.ver = 0.3
-ui.program_name = _("sh411", clr.author) + "'s Process Monitor"
+ui.program_name = _("sh411", color.author) + "'s Process Monitor"
 ui.prompt_message = "actioN>> "
 
 ui.input = []
@@ -92,7 +92,7 @@ ui.display_header = function()
 end function
 
 ui.display_action = function(action, description)
-	action = str.append_whitespaces(action, 15)
+	action = str.append_characters(action, 15)
 	print(_(action + description))
 end function
 
@@ -101,31 +101,31 @@ ui.display_button = function(number_, process_object)
 	
 	ui.buttons[number_] = p
 	
-	number_ = str.append_whitespaces(number_, 3)
-	user = str.append_whitespaces(p.user, 10)
-	pid = str.append_whitespaces(p.pid, 6)
+	number_ = str.append_characters(number_, 3)
+	user = str.append_characters(p.user, 10)
+	pid = str.append_characters(p.pid, 6)
 	cpu_usage = p.cpu_usage
 	mem_usage = p.mem_usage
 	if cpu_usage == 0 then cpu_usage = cpu_usage + ".0"
 	if mem_usage == 0 then mem_usage = mem_usage + ".0"
-	cpu_usage = str.append_whitespaces(cpu_usage, 6)
-	mem_usage = str.append_whitespaces(mem_usage, 6)
+	cpu_usage = str.append_characters(cpu_usage, 6)
+	mem_usage = str.append_characters(mem_usage, 6)
 	
 	data = number_ + user + pid + cpu_usage + mem_usage + p.name_
 	original_text = data
 
-	data = data.replace(p.pid, _(p.pid, clr.info))
-	data = data.replace(p.name_, _(p.name_, clr.info))
+	data = data.replace(p.pid, _(p.pid, color.info))
+	data = data.replace(p.name_, _(p.name_, color.info))
 	
 	data = colorize_process_usage(cpu_usage, data)
 	data = colorize_process_usage(mem_usage, data)
 	
 	if p.user == "root" then
-		data = data.replace(p.user, _(p.user, clr.warning))
+		data = data.replace(p.user, _(p.user, color.warning))
 	else if p.user == "guest" then
-		data = data.replace(p.user, _(p.user, clr.note))
+		data = data.replace(p.user, _(p.user, color.note))
 	else
-		data = data.replace(p.user, _(p.user, clr.success))
+		data = data.replace(p.user, _(p.user, color.success))
 	end if
 	
 	print(_(data))
@@ -133,7 +133,7 @@ ui.display_button = function(number_, process_object)
 end function
 
 ui.display_running_processes = function()
-	print(_("NUM USER       PID    CPU_%  MEM_%  NAME"))
+	print(_("N   USER       PID    CPU_%  MEM_%  NAME"))
 	// cleaning up ui.buttons
 	ui.buttons = {}
 	processes = process.get_running_processes()
@@ -152,7 +152,7 @@ ui.display_usage_info = function()
 	if cpu_usage == "0" then cpu_usage = cpu_usage + ".0"
 	if mem_usage == "0" then mem_usage = mem_usage + ".0"
 
-	data = "CPU " + str.append_whitespaces(cpu_usage, 5) + " MEM " + str.append_whitespaces(mem_usage, 5) + " PROCESSES " + process_count
+	data = "CPU " + str.append_characters(cpu_usage, 5) + " MEM " + str.append_characters(mem_usage, 5) + " PROCESSES " + process_count
 	data = colorize_process_usage(cpu_usage, data)
 	data = colorize_process_usage(mem_usage, data)
 
@@ -162,7 +162,7 @@ end function
 ui.display_errors = function()
 	if ui.errors.len != 0 then
 		for error in ui.errors
-			print(_(error, clr.warning))
+			print(_(error, color.warning))
 		end for
 		ui.errors = []
 	end if
@@ -184,7 +184,7 @@ ui.display_main_help_message = function()
 	ui.display_action("config", "Edit configuration")
 	ui.display_action("monitor", "Htop mode")
 	ui.display_action("<blank>", "Refresh processes")
-	ui.display_action("<NUM(s)>/all/*", "Choose processes(separated by space)")
+	ui.display_action("<N(s)>/all/*", "Choose processes(separated by space)")
 	ui.display_action("Ctrl+C", "Quit " + ui.program_name)
 end function
 
@@ -281,7 +281,7 @@ menu.configuration = function()
 	clear_screen()
 	ui.display_header()
 
-	print(_("Configuration at " + _(cfg.path, clr.info) + ":"))
+	print(_("Configuration at " + _(cfg.path, color.info) + ":"))
 	ui.display_line(40)
 	for kv in config
 		option_name = kv.key
@@ -359,14 +359,14 @@ submenu.taking_snapshot = function()
 	file = aux.computer.File(path)
 	if not file or not file.is_folder() then
 		path = home_dir()
-		print(_("Could not find directory: " + _(config.snapshot_dir, clr.info), clr.note))
-		print(_("Using " + _(path, clr.info) + " for snapshot...", clr.note))
+		print(_("Could not find directory: " + _(config.snapshot_dir, color.info), color.note))
+		print(_("Using " + _(path, color.info) + " for snapshot...", color.note))
 	end if
 	aux.computer.touch(path, snapshot_name)
 
 	file = aux.computer.File(path + "/" + snapshot_name)
 	file.set_content(format_columns(snapshot_content))
-	print(_("Successfully created snapshot " + _(snapshot_name, clr.info) + " at " + _(path, clr.info)))
+	print(_("Successfully created snapshot " + _(snapshot_name, color.info) + " at " + _(path, color.info)))
 	wait(2)
 
 	return menu.manipulating_processes()

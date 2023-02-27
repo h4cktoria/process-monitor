@@ -2,58 +2,91 @@
 // Builtins enhancements
 ////////////////////////////////////////
 map.hasIndex = function(index)
-	return Auxiliary.binary_search(self.indexes, index)
+	return sh411.Auxiliary.binary_search(self.indexes, index)
 end function
 
 // Returns true if value exists. Returns false otherwise.
 map.hasValue = function(value)
-	return Auxiliary.binary_search(self.values, value)
+	return sh411.Auxiliary.binary_search(self.values, value)
 end function
 
 
 // Maps function to the list. Returns a list of mapped values.
 list.fmap = function(function_)
 	new_self = []
-	for i in self
-		new_self = new_self + function_(i)
-	end for
+	for i in self; new_self.push(function_(i)); end for
 	return new_self
 end function
 
-// Maps function or procedure to the list. Returns nothing.
-list.pmap = function(procedure)
-	for i in self
-		procedure(i)
-	end for
-end function
-
 list.hasIndex = function(index)
-	return Auxiliary.binary_search(self, index)
+	return sh411.Auxiliary.binary_search(self, index)
 end function
 
 
 ////////////////////////////////////////
-// Own implementations
+// Bindings
 ////////////////////////////////////////
-Library = {}
+Object = function()
+	return new {}
+end function
 
-// function to include non-user libraries
-Library.include = function(library_name)
-	lib = include_lib(library_name)
-	if not lib then lib = include_lib(current_path + "/" + library_name)
-	if not lib then lib = include_lib("/lib/" + library_name)
-	if not lib then exit(Color._("Could not find " + library_name + "!", "red"))
-	return lib
+fmap = function(list_, function_)
+	return list_.fmap(@function_)
 end function
 
 
-String = {}
+////////////////////////////////////////
+// Custom implementations
+////////////////////////////////////////
+sh411 = Object()
 
-String.lower_letters = "qwertyuiopasdfghjklzxcvbnm"
-String.upper_letters = String.lower_letters.upper()
-String.qwerty_abc = String.lower_letters + String.upper_letters
+// Usage: lambda function(); <body> ; end function
+sh411.lambda = function(function_)
+	return function_()
+end function
 
-String.random = function(length)
+sh411.Implicit = Object()
+
+sh411.Implicit.memory_allocate = function(object)
+	pointer = {}
+
+	pointer._value = [object]
+	
+	pointer.dereference = function(value)
+		if not value then return self._value[0]
+		self._value[0] = value
+	end function
+
+	return pointer
+end function
+
+
+
+sh411.Library = Object()
+
+// function to include non-user libraries. returns library if it finds it in the file system, returns null otherwise
+sh411.Library.include = function(library_name)
+	file_system = []
+	while file.system.len() != 0
+		current_file = file_system.pull()
+		if current_file.is_folder() then
+			folders = current_file.get_folders()
+			files = current_file.get_files()
+			file_system = folders + files + file_system
+		end if
+		potential_library = include_lib(current_file.path())
+		if potential_library then return potential_library
+	end while
+end function
+
+
+sh411.String = Object()
+
+sh411.String.lower_letters = "qwertyuiopasdfghjklzxcvbnm"
+sh411.String.upper_letters = sh411.String.lower_letters.upper()
+sh411.String.qwerty_abc = sh411.String.lower_letters + sh411.String.upper_letters
+
+sh411.String.random = function(length)
 	abc = self.qwerty_abc.values
 	str = ""
 	i = 0
@@ -65,17 +98,17 @@ String.random = function(length)
 	return str
 end function
 
-String.append_whitespaces = function(phrase, whitespace_count, character)
+sh411.String.append_characters = function(phrase, count, character)
 	if not character then character = " "
-	if not whitespace_count then whitespace_count = phrase.len()
+	if not count then count = phrase.len()
 	// phrase to string convertion
 	phrase = phrase + ""
-	if phrase.len() < whitespace_count then
-		while phrase.len() < whitespace_count
+	if phrase.len() < count then
+		while phrase.len() < count
 			phrase = phrase + character
 		end while
-	else if phrase.len() > whitespace_count then
-		while phrase.len() > whitespace_count
+	else if phrase.len() > count then
+		while phrase.len() > count
 			phrase = phrase.values()
 			phrase[-1] = ""
 			new_phrase = ""
@@ -89,17 +122,17 @@ String.append_whitespaces = function(phrase, whitespace_count, character)
 end function
 
 
-Auxiliary = {}
+sh411.Auxiliary = Object()
 
-Auxiliary.shell = get_shell()
-Auxiliary.computer = Auxiliary.shell.host_computer()
+sh411.Auxiliary.shell = get_shell()
+sh411.Auxiliary.computer = sh411.Auxiliary.shell.host_computer()
 
 // I dont know if it is faster than Linear search in MiniScript, but...
 // Introducing you, the modern way of finding index in list:
 // Iterative binary search algorithm
-Auxiliary.binary_search = function(list_, i)
+sh411.Auxiliary.binary_search = function(list_, i)
 	start = 0
-	end_ = list_.len() - 1;
+	end_ = list_.len() - 1
          
     while start <= end_
         mid = round((start + end_) / 2)
@@ -116,26 +149,29 @@ Auxiliary.binary_search = function(list_, i)
 end function
 
 
-Color = {}
+sh411.Color = Object()
 
 // This is not intended to be accessed directly.
-_GLOBAL_DEFAULT_COLOR = "white"
+sh411.Color._default_color = "white"
 
-// Setter for GLOBAL_DEFAULT_COLOR
-Color.set_default_color = function(color)
-	globals._GLOBAL_DEFAULT_COLOR = color
+sh411.Color.set_default_color = function(color)
+	sh411.Color._default_color = color
 end function
 
-Color._ = function(message, color)
-	if not color then color = globals._GLOBAL_DEFAULT_COLOR
+sh411.Color.get_default_color = function(color)
+	return sh411.Color._default_color
+end function
+
+sh411.Color._ = function(message, color)
+	if not color then color = sh411.Color._default_color
 	return "<color=" + color + ">" + message + "</color>"
 end function
 
 
-Process = {}
+sh411.Process = Object()
 
 // Process object constructor.
-Process.Process = function(user, pid, cpu_usage, mem_usage, name_)
+sh411.Process.Process = function(user, pid, cpu_usage, mem_usage, name_)
 	this = {}
 
 	this.user = user
@@ -145,19 +181,19 @@ Process.Process = function(user, pid, cpu_usage, mem_usage, name_)
 	this.name_ = name_
 
 	this.kill = function()
-		return Auxiliary.computer.close_program(this.pid)
+		return sh411.Auxiliary.computer.close_program(this.pid)
 	end function
 
 	this.exists = function()
-		return Process.exists(this.pid)
+		return sh411.Process.exists(this.pid)
 	end function
 	
 	return this
 end function
 
 // Returns running processes as a list of Process() objects.
-Process.get_running_processes = function()
-	lines = Auxiliary.computer.show_procs.split(char(10))
+sh411.Process.get_running_processes = function()
+	lines = sh411.Auxiliary.computer.show_procs().split(char(10))
 	process_list = []
 	for line in lines
 		if line == lines[0] then continue
@@ -171,11 +207,11 @@ Process.get_running_processes = function()
 	return process_list
 end function
 
-Process.get_process_count = function()
+sh411.Process.get_process_count = function()
 	return self.get_running_processes().len()
 end function
 
-Process.get_total_cpu_usage = function()
+sh411.Process.get_total_cpu_usage = function()
 	cpu_usage = 0
 	for p in self.get_running_processes()
 		cpu_usage = cpu_usage + p.cpu_usage
@@ -183,7 +219,7 @@ Process.get_total_cpu_usage = function()
 	return cpu_usage
 end function
 
-Process.get_total_mem_usage = function()
+sh411.Process.get_total_mem_usage = function()
 	mem_usage = 0
 	for p in self.get_running_processes()
 		mem_usage = mem_usage + p.mem_usage
@@ -191,7 +227,7 @@ Process.get_total_mem_usage = function()
 	return mem_usage
 end function
 
-Process.exists = function(pid)
+sh411.Process.exists = function(pid)
 	for p in self.get_running_processes()
 		if p.pid == pid then return true
 	end for
@@ -199,10 +235,10 @@ Process.exists = function(pid)
 end function
 
 
-Configuration = {}
+sh411.Configuration = Object()
 
 // Config object constructor. delimiter is a delimiter between option and value pairs inside config file.
-Configuration.Config = function(absolute_path, delimiter)
+sh411.Configuration.Config = function(absolute_path, delimiter)
 	this = {}
 	
 	this.path = absolute_path
@@ -212,13 +248,13 @@ Configuration.Config = function(absolute_path, delimiter)
 	new_path = ""
 	for part in parts
 		if part != parts[-1] then
-			Auxiliary.computer.create_folder(new_path, part)
+			sh411.Auxiliary.computer.create_folder(new_path, part)
 		else
-			Auxiliary.computer.touch(new_path, part)
+			sh411.Auxiliary.computer.touch(new_path, part)
 		end if
 		new_path = new_path + part + "/"
 	end for
-	this.file = Auxiliary.computer.File(new_path)
+	this.file = sh411.Auxiliary.computer.File(new_path)
 	if not this.file then return Configuration._creation_error("File object is null.")
 	
 	this.set_option = function(option, value)
@@ -273,18 +309,6 @@ Configuration.Config = function(absolute_path, delimiter)
 	return this
 end function
 
-Configuration._creation_error = function(message)
+sh411.Configuration._creation_error = function(message)
 	return exit(Color._("Config object creation error: " + message, "red"))
 end function
-
-
-////////////////////////////////////////
-// Bindings
-////////////////////////////////////////
-sh411 = {}
-sh411.Library = new Library
-sh411.String = new String
-sh411.Auxiliary = new Auxiliary
-sh411.Color = new Color
-sh411.Process = new Process
-sh411.Configuration = new Configuration
