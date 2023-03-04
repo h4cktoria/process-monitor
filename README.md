@@ -1,3 +1,8 @@
+# DEPRECATION WARNING!
+
+This project is no longer maintained. For new alternative, please proceed to https://github.com/h4cktoria/task-manager
+
+
 # Process Monitor
 
 _Your swiss army knife when it comes to process-handling_
